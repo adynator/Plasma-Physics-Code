@@ -1,2 +1,11 @@
 # Plasma-Physics-Code
-A collection of codes I have written to understand plasma physics phenomena
+
+Projects
+
+1. Landau Damping
+  * Solve a (1+1)d model of the Kinetic equation
+  * Includes Lenard-Bernstein collision operator
+  * Demonstrates Landau damping and free energy evolution with collisional effects
+→ [View project](landau-damping)
+
+  
