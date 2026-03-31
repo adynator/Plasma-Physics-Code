@@ -88,9 +88,45 @@ class Hermite_Landau:
             x[n-2-i] = (D[n-2-i] - C[n-2-i]*x[n-1-i])/B[n-2-i]
         return x
 
-problem = Hermite_Landau(1,2*np.pi, 10**(-2))
-N = 128
+alpha = 1
+k = 2*np.pi
+nu = 10**(-2)
+problem = Hermite_Landau(alpha, k, nu)
+M = 40000
+N = 128  
 g0 = np.zeros(N)
 g0[0] = 1
 problem.initial_condition(g0)
 phi, W, g, t = problem.solve(N, 40000, 0.0001)
+#Plotting the potential and free energy
+plt.semilogy(t,phi,label='Potential')
+plt.semilogy(t,W, label='Free Energy')
+plt.xlabel("t")
+plt.legend()
+plt.show()
+
+#Defining the perturbed particle distribution function using Hermite polynomials
+def delg(t,z,v):
+    zsize = z.size
+    vsize = v.size
+    gR = np.zeros((zsize,N))
+    H = np.zeros((N,vsize))
+    for n in range(N):
+        H[n,:] = np.exp(-v**2)*special.eval_hermite(n, v)/(math.sqrt(np.pi*(2**n)*math.factorial(n)))
+    for n in range(N):
+            gR[:,n] = np.real(g[n,t]*np.exp(1j*2*np.pi*z))
+    G = gR @ H
+    return G
+
+z = np.linspace(-2,2,500)
+v = np.linspace(-2,2,500)
+Z, V = np.meshgrid(z, v)
+
+G = delg(10000,z,v)
+#Plotting perturbed particle distribution function
+plt.pcolormesh(Z, V, G.T)
+plt.colorbar(label="Magnitude")
+plt.xlabel("z")
+plt.ylabel("v")
+plt.title("Perturbed Distribution Function")
+plt.show()
