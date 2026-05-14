@@ -4,17 +4,18 @@ import matplotlib.pyplot as plt
 
 class Finite_Element_Solver():
 
-    def Barycenter_Coords(self,xi,xj,xk,R,Z):
+    def Barycenter_Coords(self,xi,xj,xk,x,y):
         #Defining barycenter coordinates in terms of the vertices of the triangle and the physical cylindrical coordinates
         a = (xk[0]*(xi[1]-xj[1])+ xi[0]*(xj[1]-xk[1])+ xj[0]*(xk[1]-xi[1]))**(-1)
         l1 = a*(xj[0]*xk[1]-xj[1]*xk[0] +R*xj[1]-Z*xj[0]+ Z*xk[0]-R*xk[1])
         l2 = a*(xk[0]*xi[1]-xk[1]*xi[0] +R*xk[1]-Z*xk[0]+ Z*xi[0]-R*xi[1])
         l3 = a*(xi[0]*xj[1]-xi[1]*xj[0] +R*xi[1]-Z*xi[0]+ Z*xj[0]-R*xj[1])
+        J = a*np.array([xk[1]-xi[1],xi[1]-xj[1]],[xi[0]-xk[0],xj[0]-xi[0]])
         
-        return l1, l2, l3
-    def Basis_Functions(self,xi,xj,xk,R,Z):
+        return l1, l2, l3, J, a
+    def Basis_Functions(self,xi,xj,xk,x,y):
         #Using cubic basis functions for each triangle and written in terms of Barycenter coordinates
-        l1, l2, l3 = self.Barycenter_Coords(xi,xj,xk,R,Z)
+        l1, l2, l3 = self.Barycenter_Coords(xi,xj,xk,x,y)
         phi = np.zeros(9)
         phi[0] = 0.5*l1*(3*l1-1)*(3*la1-2)
         phi[1] = 0.5*l2*(3*l2-1)*(3*l2-2)
@@ -45,8 +46,56 @@ class Finite_Element_Solver():
         grad[9] = np.array([27.0 * (-l2*l3 + -l1*l3 + l1*l2 * 0.0), 27.0 * (-l2*l3 + l1*(-l3) + l1*l2 * 1.0)])
 
         return phi, grad
-    def IntegrateTriangle():
-        #Using 7-point Gauss quadrature rule to perform integral over fundamental triangle in barycenter coordinates
-    
-    def StiffnessMatrix():    
+    def IntegrateTriangle(self, f):
+        #Using 16-point Gauss quadrature rule to perform an integral over the fundamental triangle in barycenter coordinates
+
+        #Defines weights and points over which we will sum
+        pts = np.array([(1/3, 1/3, 1/3), 
+                                (0.081414823414554, 0.459292588292723, 0.459292588292723),
+                                (0.459292588292723, 0.081414823414554, 0.459292588292723),
+                                (0.459292588292723, 0.459292588292723, 0.081414823414554),
+                                (0.658861384496480, 0.170569307751760, 0.170569307751760),
+                                (0.170569307751760, 0.658861384496480, 0.170569307751760),
+                                (0.170569307751760, 0.170569307751760, 0.658861384496480),
+                                (0.898905543365938, 0.050547228317031, 0.050547228317031),
+                                (0.050547228317031, 0.898905543365938, 0.050547228317031),
+                                (0.050547228317031, 0.050547228317031, 0.898905543365938),
+                                (0.008394777409958, 0.263112829634638, 0.728492392955404),
+                                (0.008394777409958, 0.728492392955404, 0.263112829634638),
+                                (0.263112829634638, 0.008394777409958, 0.728492392955404),
+                                (0.263112829634638, 0.728492392955404, 0.008394777409958),
+                                (0.728492392955404, 0.008394777409958, 0.263112829634638),
+                                (0.728492392955404, 0.263112829634638, 0.008394777409958)])
+        weights = np.array([0.144315607677787, 
+                   0.095091634267285, 0.095091634267285, 0.095091634267285,
+                   0.103217370534718, 0.103217370534718, 0.103217370534718,
+                   0.032458497623198, 0.032458497623198, 0.032458497623198,
+                   0.027230314174435, 0.027230314174435, 0.027230314174435,
+                   0.027230314174435, 0.027230314174435, 0.027230314174435])
+        I = 0
+        for (l1,l2,l3),w in zip(pts,weights):
+            I += w*f(l1,l2,l3)
+        return 0.5*I
+
+    def Square_Mesh(Nx, Ny, x_i, x_f, y_i, y_f):
+        #Constructs a square mesh for FEM
+        x = np.linspace(x_i, x_f, Nx)
+        y = np.linspace(y_i, y_f, Ny)
+
+        T = np.zeros((3,2,2*(Nx-1)*(Ny-1)))
+        for n in range(Ny-1):
+            for m in range(Nx-1):
+                T[0,:,2*(m+(Nx-1)*n)] = np.array([x[m],y[n]]) 
+                T[1,:,2*(m+(Nx-1)*n)] = np.array([x[m],y[n+1]])
+                T[2,:,2*(m+(Nx-1)*n)] = np.array([x[m+1],y[n]]) 
+                
+                T[0,:,2*(m+(Nx-1)*n)+1] = np.array([x[m+1],y[n]]) 
+                T[1,:,2*(m+(Nx-1)*n)+1] = np.array([x[m],y[n+1]])
+                T[2,:,2*(m+(Nx-1)*n)+1] = np.array([x[m+1],y[n+1]]) 
+        return T
+    def StiffnessMatrix(self,Nx, Ny, x_i, x_f, y_i, y_f):    
         #Construct stiffness matrix in FEM
+        T = self.Square_Mesh(Nx, Ny, x_i, x_f, y_i, y_f)
+        #Compute local contribution to stiffness matrix, which will be a 10x10 symmetric matrix
+        #Add all local contributions together to compute 
+        
