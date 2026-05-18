@@ -102,7 +102,7 @@ class Finite_Element_Solver():
             I += w*f(l1,l2,l3)
         return 0.5*I
 
-    def Square_Mesh(Nx, Ny, x_i, x_f, y_i, y_f):
+    def Square_Mesh(self,Nx, Ny, x_i, x_f, y_i, y_f):
         #Constructs a square mesh for FEM
         x = np.linspace(x_i, x_f, Nx)
         y = np.linspace(y_i, y_f, Ny)
@@ -136,10 +136,10 @@ class Finite_Element_Solver():
                 l1,l2,l3 = self.Barycenter_Coords(xi,xj,xk)[:3]
                 if l1(V[m,0],V[m,1])>=0 and l2(V[m,0],V[m,1])>=0 and l3(V[m,0],V[m,1])>=0:
                     if np.isclose(l1(V[m,0],V[m,1]),0.0):
-                        if l2(V[m,0],V[m,1]) = 0:
+                        if np.isclose(l2(V[m,0],V[m,1]),0.0):
                             TV[m,n,0] = 3
                             
-                        elif l3(V[m,0],V[m,1]) = 0:
+                        elif np.isclose(l3(V[m,0],V[m,1]),0.0):
                             TV[m,n,0] = 2
 
                         elif l3(V[m,0],V[m,1]) > l2(V[m,0],V[m,1]):
@@ -149,7 +149,7 @@ class Finite_Element_Solver():
                             TV[m,n,0] = 6
 
                     if np.isclose(l2(V[m,0],V[m,1]),0.0):
-                        if l3(V[m,0],V[m,1]) = 0:
+                        if np.isclose(l3(V[m,0],V[m,1]),0.0):
                             TV[m,n,0] = 1
                             
                         elif l3(V[m,0],V[m,1]) > l1(V[m,0],V[m,1]):
@@ -181,14 +181,13 @@ class Finite_Element_Solver():
         for n in range(GDOF):
             for m in range(GDOF):
                 for j in range(T.shape[2]):
-                    xi = T[0,:,j]
-                    xj = T[1,:,j]
-                    xk = T[2,:,j]
-                    J, a = self.Barycenter_Coords(xi,xj,xk)[3:]
-                    phi, grad = self.Basis_Functions(xi,xj,xk)
-                    def f(l1,l2,l3):
-                        return a*grad[n](l1,l2,l3)@J.T@J@grad[m](l1,l2,l3)/(xi[0]*l1 +xj[0]*l2+xk[0]*l3)
-                    A[n,m] += self.IntegrateTriangle(f)
-                
-        
-        
+                    if TV[n,j,0] !=0 and TV[m,j,0]!= 0:
+                        xi = T[0,:,j]
+                        xj = T[1,:,j]
+                        xk = T[2,:,j]
+                        J, a = self.Barycenter_Coords(xi,xj,xk)[3:]
+                        phi, grad = self.Basis_Functions(xi,xj,xk)
+                        def f(l1,l2,l3):
+                            return a*grad[int(TV[n,j,0]-1)](l1,l2,l3)@J.T@J@grad[int(TV[m,j,0]-1)](l1,l2,l3)/(xi[0]*l1 +xj[0]*l2+xk[0]*l3)
+                        A[n,m] += self.IntegrateTriangle(f)
+        return A   
