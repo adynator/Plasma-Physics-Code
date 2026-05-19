@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse import lil_matrix
+from scipy.sparse.linalg import spsolve
 
 
 class Finite_Element_Solver():
@@ -119,75 +121,43 @@ class Finite_Element_Solver():
                 T[2,:,2*(m+(Nx-1)*n)+1] = np.array([x[m+1],y[n]]) 
 
         #Tethers the global degrees of freedom to the local basis functions
-        GDOF = 9*(Nx-1)*(Ny-1) +3*(Nx-1)+3*(Ny-1)+1
         X = np.linspace(x_i, x_f, 3*Nx - 2)
         Y = np.linspace(y_i, y_f, 3*Ny - 2)
-        V = np.zeros((GDOF,2))
+        V = {}
         for m in range(3*Ny-2):
             for n in range(3*Nx-2):
-                V[n+(3*(Nx-1)+1)*m,:] = np.array([X[n],Y[m]]) 
-
-        TV = np.zeros((GDOF,2*(Nx-1)*(Ny-1),1))
-        for m in range(GDOF):
-            for n in range(2*(Nx-1)*(Ny-1)):
-                xi = T[0,:,n]
-                xj = T[1,:,n]
-                xk = T[2,:,n]
-                l1,l2,l3 = self.Barycenter_Coords(xi,xj,xk)[:3]
-                if l1(V[m,0],V[m,1])>=0 and l2(V[m,0],V[m,1])>=0 and l3(V[m,0],V[m,1])>=0:
-                    if np.isclose(l1(V[m,0],V[m,1]),0.0):
-                        if np.isclose(l2(V[m,0],V[m,1]),0.0):
-                            TV[m,n,0] = 3
-                            
-                        elif np.isclose(l3(V[m,0],V[m,1]),0.0):
-                            TV[m,n,0] = 2
-
-                        elif l3(V[m,0],V[m,1]) > l2(V[m,0],V[m,1]):
-                            TV[m,n,0] = 7
-                            
-                        elif l2(V[m,0],V[m,1]) > l3(V[m,0],V[m,1]):
-                            TV[m,n,0] = 6
-
-                    if np.isclose(l2(V[m,0],V[m,1]),0.0):
-                        if np.isclose(l3(V[m,0],V[m,1]),0.0):
-                            TV[m,n,0] = 1
-                            
-                        elif l3(V[m,0],V[m,1]) > l1(V[m,0],V[m,1]):
-                            TV[m,n,0] = 8
-                            
-                        elif l1(V[m,0],V[m,1]) > l3(V[m,0],V[m,1]):
-                            TV[m,n,0] = 9
-                            
-                    if np.isclose(l3(V[m,0],V[m,1]),0.0):
-                        if l2(V[m,0],V[m,1]) > l1(V[m,0],V[m,1]):
-                            TV[m,n,0] = 5
-                            
-                        elif l1(V[m,0],V[m,1]) > l2(V[m,0],V[m,1]):
-                            TV[m,n,0] = 4
-                            
-                    else:
-                        TV[m,n,0] = 10
+                V[(round(float(X[n]),12),round(float(Y[m]),12))] = n+(3*(Nx-1)+1)*m
                 
-                    
-        return T, TV      
+        TV = np.zeros((2*(Nx-1)*(Ny-1), 10))
+        bary_basis = np.array([ [1.0,   0.0,   0.0], [0.0,   1.0,   0.0], [0.0,   0.0,   1.0],
+                                [2/3,   1/3,   0.0], [1/3,   2/3,   0.0], [0.0,   2/3,   1/3],
+                                [0.0,   1/3,   2/3], [1/3,   0.0,   2/3], [2/3,   0.0,   1/3],
+                                [1/3,   1/3,   1/3]])
+        for m in range(T.shape[2]):
+            xi = T[0,:,m]
+            xj = T[1,:,m]
+            xk = T[2,:,m]
+            l1,l2,l3 = self.Barycenter_Coords(xi,xj,xk)[:3]
+            for n in range(10):
+                p = bary_basis[n,0]*xi + bary_basis[n,1]*xj + bary_basis[n,2]*xk
+                TV[m,n] = V[(round(float(p[0]), 12),round(float(p[1]), 12))]
+        return T, V, TV     
         
     def StiffnessMatrix(self,Nx, Ny, x_i, x_f, y_i, y_f):    
         #Construct stiffness matrix in FEM
-        T, TV = self.Square_Mesh(Nx, Ny, x_i, x_f, y_i, y_f)
+        T,V,TV = self.Square_Mesh(Nx, Ny, x_i, x_f, y_i, y_f)
         GDOF = 9*(Nx-1)*(Ny-1) +3*(Nx-1)+3*(Ny-1)+1
-        A = np.zeros((GDOF,GDOF))
-        x = np.linspace(x_i, x_f, Nx)
-        y = np.linspace(y_i, y_f, Ny)
-        for n in range(GDOF):
-            for m in range(GDOF):
-                for j in range(T.shape[2]):
-                    if TV[n,j,0] !=0 and TV[m,j,0]!= 0:
-                        xi = T[0,:,j]
-                        xj = T[1,:,j]
-                        xk = T[2,:,j]
-                        J, a = self.Barycenter_Coords(xi,xj,xk)[3:]
-                        phi, grad = self.Basis_Functions(xi,xj,xk)
-                        def f(l1,l2,l3):
-                            return a*grad[int(TV[n,j,0]-1)](l1,l2,l3)@J.T@J@grad[int(TV[m,j,0]-1)](l1,l2,l3)/(xi[0]*l1 +xj[0]*l2+xk[0]*l3)
-                        A[n,m] += self.IntegrateTriangle(f)
-        return A   
+        A = lil_matrix((GDOF,GDOF))
+        for n in range(T.shape[2]):
+            xi = T[0,:,n]
+            xj = T[1,:,n]
+            xk = T[2,:,n]
+            J, a = self.Barycenter_Coords(xi,xj,xk)[3:]
+            phi, grad = self.Basis_Functions(xi,xj,xk)
+            B = TV[n,:]
+            for j in range(10):
+                for k in range(10):
+                    def f(l1,l2,l3):
+                        return a*grad[j](l1,l2,l3)@J.T@J@grad[k](l1,l2,l3)/(xi[0]*l1 +xj[0]*l2+xk[0]*l3)
+                    A[int(B[j]),int(B[k])] += self.IntegrateTriangle(f) 
+        return A 
