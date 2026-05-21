@@ -1,1 +1,3 @@
-We implement a cubic finite element method to solve the Grad-Shafranov equation...
+We implement a cubic finite element method to solve the Grad-Shafranov equation.
+*At the moment, this code includes an FEM solver involving cubic basis functions and a 16-point Gaussian quadrature to integrate over fundamental triangles. Creates a square mesh and imposes Dirichlet boundary conditions. Uses a Picard iteration to solve the non-linear problem.
+* TODO: Implement more sophisticated mesh creation to be able to access more realistic Tokamak geometries. 
